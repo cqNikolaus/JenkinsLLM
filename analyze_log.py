@@ -30,11 +30,9 @@ class JenkinsLogFetcher:
         """
         Ruft das Console-Log von Jenkins ab und gibt es als String zurück.
         """
-        # Normalerweise: https://<jenkins>/job/<JOB_NAME>/<BUILD_NUMBER>/consoleText
         console_url = f"{self.base_url}/job/{self.job_name}/{self.build_number}/consoleText"
 
         try:
-            # GET-Request mit Basic Auth
             response = requests.get(console_url, auth=HTTPBasicAuth(self.user, self.token), timeout=30)
             response.raise_for_status()
             return response.text
@@ -46,21 +44,31 @@ class JenkinsLogFetcher:
 class LogParser:
     """
     Extrahiert und filtert relevante Fehlermeldungen im Build-Log.
+    Sendet nur die letzten X Zeilen weiter, um Kosten zu reduzieren.
     """
-    def __init__(self, raw_log: str):
+    def __init__(self, raw_log: str, max_lines: int = 100):
+        """
+        raw_log: Vollständiges abgerufenes Log
+        max_lines: Anzahl an Zeilen, die am Ende berücksichtigt werden
+        """
         self.raw_log = raw_log
+        self.max_lines = max_lines
 
     def extract_errors(self) -> str:
         """
-        Durchsucht das gesamte Log nach typischen Fehlerschlagwörtern
+        Durchsucht nur die letzten max_lines des Logs nach typischen Fehlerstichwörtern
         und filtert vertrauliche Daten (z. B. Passwords).
         """
+        # Nur die letzten X Zeilen nehmen
+        all_lines = self.raw_log.splitlines()
+        last_lines = all_lines[-self.max_lines:]  # nur die letzten max_lines
+
         error_lines = []
         error_pattern = re.compile(r"(error|exception|failed|traceback)", re.IGNORECASE)
 
-        for line in self.raw_log.splitlines():
+        for line in last_lines:
             if error_pattern.search(line):
-                # Beispiel-Filtern vertraulicher Daten
+                # Filtern vertraulicher Daten
                 line = re.sub(r"(password|token)\S*", "[REDACTED]", line, flags=re.IGNORECASE)
                 error_lines.append(line.strip())
 
@@ -88,7 +96,6 @@ class OpenAIClient:
             "Authorization": f"Bearer {self.api_key}"
         }
 
-        # Prompt definieren
         prompt_message = (
             "Analysiere den folgenden Build-Log-Auszug. "
             "Identifiziere mögliche Ursachen, Fehlerquellen und mache Vorschläge zur Behebung:\n\n"
@@ -114,13 +121,13 @@ class OpenAIClient:
         except KeyError:
             return "Unerwartete Antwortstruktur von der OpenAI API erhalten."
 
-    def analyze_errors_with_retry(self, error_text: str, retries=3, delay=10) -> str:
+    def analyze_errors_with_retry(self, error_text: str, retries=1, delay=20) -> str:
         """
         Führt analyze_errors mit mehreren Versuchen aus, falls ein 'Too Many Requests' (429) Fehler auftritt.
+        Reduzierte Retry-Zahl und längere Wartezeit, um unnötige Kosten zu vermeiden.
         """
         for attempt in range(retries):
             result = self.analyze_errors(error_text)
-            # Falls kein Hinweis auf Rate Limit in der Fehlermeldung oder alles OK, Ergebnis zurückgeben
             if "Too Many Requests" not in result and "429" not in result:
                 return result
             print(f"Rate Limit überschritten. Warte {delay} Sekunden... (Versuch {attempt+1}/{retries})", file=sys.stderr)
@@ -132,7 +139,7 @@ class BuildAnalyzer:
     """
     Koordiniert den Ablauf:
     1. JenkinsLogFetcher ruft das Log des fehlgeschlagenen Jobs ab
-    2. LogParser filtert relevante Fehler
+    2. LogParser filtert die letzten X Zeilen und extrahiert relevante Fehler
     3. OpenAIClient analysiert das Ganze (mit Retry bei Rate-Limit)
     4. Ausgabe erfolgt im stdout
     """
@@ -141,23 +148,19 @@ class BuildAnalyzer:
         self.openai_client = OpenAIClient()
 
     def run_analysis(self):
-        # 1) Log abrufen
         raw_log = self.log_fetcher.get_console_log()
         if not raw_log:
             print("Konnte kein Log abrufen. Abbruch.")
             return
 
-        # 2) Relevante Fehler extrahieren
-        parser = LogParser(raw_log)
+        # Beim Erzeugen des LogParsers nur die letzten X Zeilen betrachten
+        parser = LogParser(raw_log, max_lines=100)
         error_text = parser.extract_errors()
         if not error_text:
             print("Keine relevanten Fehler im abgerufenen Log gefunden.")
             return
 
-        # 3) An OpenAI senden (mit Retry)
         analysis_result = self.openai_client.analyze_errors_with_retry(error_text)
-
-        # 4) Direkt auf stdout ausgeben
         print(analysis_result)
 
 
