@@ -73,10 +73,10 @@ class OpenAIClient:
     - Sendet die Fehlermeldungen zur Analyse
     """
     def __init__(self):
-        self.api_key = os.getenv("OPENAI_API_KEY")
+        self.api_key = os.getenv("OPENAI_API_TOKEN")
         self.api_url = "https://api.openai.com/v1/chat/completions"
         if not self.api_key:
-            raise ValueError("Umgebungsvariable OPENAI_API_KEY ist nicht gesetzt.")
+            raise ValueError("Umgebungsvariable OPENAI_API_TOKEN ist nicht gesetzt.")
 
     def analyze_errors(self, error_text: str) -> str:
         """
@@ -148,16 +148,12 @@ class BuildAnalyzer:
 
 
 def main():
-    # Jenkins-Basis-URL, z. B. 'https://jenkins.meinefirma.com'
-    jenkins_base_url = os.getenv("JENKINS_BASE_URL")
-    # Parameter aus Jenkins Pipeline B (z.B. "MeinJob")
+    jenkins_base_url = "https://jenkins-clemens01-0.comquent.academy/"
     failed_job_name = os.getenv("FAILED_JOB_NAME")
-    # Buildnummer (z.B. "42")
     failed_build_number = os.getenv("FAILED_BUILD_NUMBER")
 
-    # Für Basic Auth bei Jenkins:
-    jenkins_user = os.getenv("JENKINS_USER", "")
-    jenkins_token = os.getenv("JENKINS_API_TOKEN", "")
+    jenkins_user = "admin"
+    jenkins_token = os.getenv("JENKINS_API_TOKEN")
 
     try:
         analyzer = BuildAnalyzer(
