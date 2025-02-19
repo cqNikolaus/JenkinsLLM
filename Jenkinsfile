@@ -18,8 +18,6 @@ pipeline {
                 ]) {
                     sh '''
                         docker run --rm \
-                        -e LANG=de_DE.UTF-8 \
-                        -e LC_ALL=de_DE.UTF-8 \
                         -e JENKINS_API_TOKEN=${JENKINS_API_TOKEN} \
                         -e OPENAI_API_TOKEN=${OPENAI_API_TOKEN} \
                         -e FAILED_JOB_NAME=${FAILED_JOB_NAME} \
