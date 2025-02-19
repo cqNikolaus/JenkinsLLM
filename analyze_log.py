@@ -65,7 +65,7 @@ class OpenAIClient:
     def __init__(self):
         self.api_key = os.getenv("OPENAI_API_TOKEN")
         self.api_url = "https://api.openai.com/v1/chat/completions"
-        self.model = "gpt-4o-mini"  # Free-Tier-Modell
+        self.model = "gpt-4o"
 
         if not self.api_key:
             raise ValueError("Umgebungsvariable OPENAI_API_TOKEN ist nicht gesetzt.")
@@ -78,7 +78,7 @@ class OpenAIClient:
 
         prompt_message = (
             "Analysiere den folgenden Build-Log-Auszug. "
-            "Identifiziere mögliche Ursachen, Fehlerquellen und mache Vorschläge zur Behebung:\n\n"
+            "Identifiziere mögliche Ursachen des Fehlschlags, Fehlerquellen und mache Vorschläge zur Behebung:\n\n"
             f"{error_text}\n\n"
         )
 
