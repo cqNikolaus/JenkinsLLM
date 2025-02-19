@@ -17,6 +17,7 @@ pipeline {
                     string(credentialsId: 'openai-api-token', variable: 'OPENAI_API_TOKEN')
                 ]) {
                     sh '''
+                        export LANG=C.UTF-8
                         docker run --rm \
                         -e JENKINS_API_TOKEN=${JENKINS_API_TOKEN} \
                         -e OPENAI_API_TOKEN=${OPENAI_API_TOKEN} \
