@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import json
+import time
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -113,13 +114,26 @@ class OpenAIClient:
         except KeyError:
             return "Unerwartete Antwortstruktur von der OpenAI API erhalten."
 
+    def analyze_errors_with_retry(self, error_text: str, retries=3, delay=10) -> str:
+        """
+        Führt analyze_errors mit mehreren Versuchen aus, falls ein 'Too Many Requests' (429) Fehler auftritt.
+        """
+        for attempt in range(retries):
+            result = self.analyze_errors(error_text)
+            # Falls kein Hinweis auf Rate Limit in der Fehlermeldung oder alles OK, Ergebnis zurückgeben
+            if "Too Many Requests" not in result and "429" not in result:
+                return result
+            print(f"Rate Limit überschritten. Warte {delay} Sekunden... (Versuch {attempt+1}/{retries})", file=sys.stderr)
+            time.sleep(delay)
+        return "Fehlgeschlagen: Rate Limit wurde mehrfach überschritten."
+
 
 class BuildAnalyzer:
     """
     Koordiniert den Ablauf:
     1. JenkinsLogFetcher ruft das Log des fehlgeschlagenen Jobs ab
     2. LogParser filtert relevante Fehler
-    3. OpenAIClient analysiert das Ganze
+    3. OpenAIClient analysiert das Ganze (mit Retry bei Rate-Limit)
     4. Ausgabe erfolgt im stdout
     """
     def __init__(self, jenkins_base_url: str, job_name: str, build_number: str, jenkins_user: str, jenkins_token: str):
@@ -140,8 +154,8 @@ class BuildAnalyzer:
             print("Keine relevanten Fehler im abgerufenen Log gefunden.")
             return
 
-        # 3) An OpenAI senden
-        analysis_result = self.openai_client.analyze_errors(error_text)
+        # 3) An OpenAI senden (mit Retry)
+        analysis_result = self.openai_client.analyze_errors_with_retry(error_text)
 
         # 4) Direkt auf stdout ausgeben
         print(analysis_result)
