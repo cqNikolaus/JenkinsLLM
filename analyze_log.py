@@ -34,26 +34,45 @@ class JenkinsLogFetcher:
 
 class LogParser:
     """
-    Extrahiert und filtert relevante Fehlermeldungen im Build-Log.
-    Sendet nur die letzten X Zeilen weiter, um Kosten zu reduzieren.
+    Extrahiert relevanten Text aus dem Build-Log:
+    - Nimmt die letzten 'max_lines' Zeilen
+    - Zusätzlich alle Zeilen, in denen bestimmte Schlagwörter wie "error", "fail", etc. vorkommen
+    - Redaktiert sensible Informationen (z.B. Passwörter, Token)
     """
-    def __init__(self, raw_log: str, max_lines: int = 100):
+    def __init__(self, raw_log: str, max_lines: int = 50):
         self.raw_log = raw_log
         self.max_lines = max_lines
 
     def extract_errors(self) -> str:
+        """
+        Liefert die letzten 'max_lines' aus dem Log plus alle Zeilen,
+        in denen (error|exception|failed|fail|traceback) vorkommen.
+        """
         all_lines = self.raw_log.splitlines()
-        last_lines = all_lines[-self.max_lines:]
+        error_pattern = re.compile(r"(error|exception|failed|fail|traceback)", re.IGNORECASE)
 
-        error_lines = []
-        error_pattern = re.compile(r"(error|exception|failed|traceback)", re.IGNORECASE)
+        # Indizes der letzten 'max_lines' Zeilen sammeln
+        last_lines_start = max(0, len(all_lines) - self.max_lines)
+        last_line_indexes = set(range(last_lines_start, len(all_lines)))
 
-        for line in last_lines:
-            if error_pattern.search(line):
-                line = re.sub(r"(password|token)\S*", "[REDACTED]", line, flags=re.IGNORECASE)
-                error_lines.append(line.strip())
+        # Indizes der Zeilen, in denen Fehlerstichwörter auftauchen
+        error_line_indexes = set(i for i, line in enumerate(all_lines) if error_pattern.search(line))
 
-        return "\n".join(error_lines)
+        # Kombination aller relevanten Indizes
+        relevant_indexes = last_line_indexes.union(error_line_indexes)
+
+        # Sortieren nach ursprünglicher Reihenfolge
+        sorted_relevant_indexes = sorted(relevant_indexes)
+
+        # Redaktion von sensiblen Infos (z.B. "password", "token")
+        secret_pattern = re.compile(r"(password|token)\S*", re.IGNORECASE)
+
+        relevant_lines = []
+        for i in sorted_relevant_indexes:
+            sanitized_line = secret_pattern.sub("[REDACTED]", all_lines[i])
+            relevant_lines.append(sanitized_line.strip())
+
+        return "\n".join(relevant_lines)
 
 
 class OpenAIClient:
@@ -117,7 +136,7 @@ class BuildAnalyzer:
     """
     Koordiniert den Ablauf:
     1. JenkinsLogFetcher ruft das Log des fehlgeschlagenen Jobs ab
-    2. LogParser filtert die letzten X Zeilen und extrahiert relevante Fehler
+    2. LogParser filtert und extrahiert relevante Zeilen
     3. OpenAIClient analysiert das Ganze (mit Retry bei Rate-Limit)
     4. Ausgabe erfolgt im stdout
     """
@@ -131,7 +150,7 @@ class BuildAnalyzer:
             print("Konnte kein Log abrufen. Abbruch.")
             return
 
-        parser = LogParser(raw_log, max_lines=100)
+        parser = LogParser(raw_log, max_lines=50)
         error_text = parser.extract_errors()
         if not error_text.strip():
             print("Kein relevanter Fehler gefunden. Kein API-Request nötig.")
