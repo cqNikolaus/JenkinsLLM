@@ -7,7 +7,7 @@ pipeline {
     stages {
         stage('Build Docker Image') {
             steps {
-                sh 'docker build analyze-log-image'
+                sh 'docker build -t analyze-log-image'
             }
         }
         stage('Analyze log') {
