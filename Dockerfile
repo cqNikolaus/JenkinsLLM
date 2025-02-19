@@ -1,8 +1,10 @@
 FROM python:3.9
 RUN apt-get update && \
     apt-get install -y locales && \
-    locale-gen de_DE.UTF-8 && \
-    update-locale LANG=de_DE.UTF-8
+    echo "de_DE.UTF-8 UTF-8" > /etc/locale.gen && \
+    locale-gen && \
+    update-locale LANG=de_DE.UTF-8 LC_ALL=de_DE.UTF-8 LANGUAGE=de_DE:de && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 ENV LANG=de_DE.UTF-8
 ENV LANGUAGE=de_DE:de
 ENV LC_ALL=de_DE.UTF-8
