@@ -18,6 +18,7 @@ pipeline {
                 ]) {
                     sh '''
                         docker run --rm \
+                        -c "rm -rf new_analysis_report.txt analysis_report.txt temp_analysis_report.txt" \
                         -e LANG=de_DE.UTF-8 \
                         -e LC_ALL=de_DE.UTF-8 \
                         -e JENKINS_API_TOKEN=${JENKINS_API_TOKEN} \
