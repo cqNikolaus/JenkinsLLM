@@ -24,7 +24,7 @@ pipeline {
                         -e OPENAI_API_TOKEN=${OPENAI_API_TOKEN} \
                         -e FAILED_JOB_NAME=${FAILED_JOB_NAME} \
                         -e FAILED_BUILD_NUMBER=${FAILED_BUILD_NUMBER} \
-                        analyze-log-image > analysis_report.txt
+                        analyze-log-image > new_analysis_report.txt
                     '''
                 }
             }
