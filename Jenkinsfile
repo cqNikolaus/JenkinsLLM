@@ -18,12 +18,13 @@ pipeline {
                 ]) {
                     sh '''
                         docker run --rm \
+                        -e LANG=C.UTF-8 \
+                        -e LC_ALL=C.UTF-8 \
                         -e JENKINS_API_TOKEN=${JENKINS_API_TOKEN} \
                         -e OPENAI_API_TOKEN=${OPENAI_API_TOKEN} \
                         -e FAILED_JOB_NAME=${FAILED_JOB_NAME} \
                         -e FAILED_BUILD_NUMBER=${FAILED_BUILD_NUMBER} \
                         analyze-log-image > temp_analysis_report.txt
-                        iconv -f ISO-8859-1 -t UTF-8 temp_analysis_report.txt > analysis_report.txt
                     '''
                 }
             }
