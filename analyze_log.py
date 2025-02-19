@@ -103,7 +103,7 @@ class OpenAIClient:
         )
 
         payload = {
-            "model": "gpt-3.5-turbo",
+            "model": "gpt-4o-mini",
             "messages": [
                 {"role": "system", "content": "Du bist ein DevOps-Experte, der Fehlerlogs analysiert."},
                 {"role": "user", "content": prompt_message}
